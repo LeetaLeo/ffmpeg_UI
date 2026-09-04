@@ -1,0 +1,75 @@
+{
+  "name": "ffmpeg-workstation-ui",
+  "version": "2.1.0",
+  "description": "FFmpeg Workstation UI - 视频转换/剪切/合并/动图/补帧/音轨管理/人声分离",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "node build.js",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "build": {
+    "appId": "com.ffmpegtui.app",
+    "productName": "FFmpeg Workstation",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "index.html",
+      "icon.png",
+      "start.bat",
+      "bin/**/*",
+      "!node_modules",
+      "!parts",
+      "!rife",
+      "!*.test.*",
+      "!_*.js",
+      "!test-*.txt",
+      "!demucs_cli.py",
+      "!build/",
+      "!dist/"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}-portable.exe"
+    }
+  },
+  "devDependencies": {
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8"
+  },
+  "keywords": [
+    "ffmpeg",
+    "video",
+    "audio",
+    "vocal-separation",
+    "demucs"
+  ],
+  "author": "LeetaLeo",
+  "license": "MIT"
+}

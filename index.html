@@ -1,0 +1,2602 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval'; media-src file: local:; img-src file: data:;">
+  <title>FFmpeg Workstation UI</title>
+  <meta name="author" content="LeetaLeo">
+  <meta name="description" content="FFmpeg Workstation UI - 视频转换/剪切/合并/动图/补帧/音轨管理/人声分离 | Author: LeetaLeo | MIT License">
+  <style>
+/* FFmpeg Workstation UI - Style v2.1.0
+   Author: LeetaLeo (https://github.com/LeetaLeo)
+   License: MIT - Copyright (c) 2025 Leeta */
+
+/* FFmpeg Workstation UI - Style v2.0 */
+:root {
+  --bg-dark: #1a1a2e;
+  --bg-mid: #16213e;
+  --bg-card: #1e293b;
+  --bg-input: #0f172a;
+  --accent: #3b82f6;
+  --accent-hover: #2563eb;
+  --accent-dim: #1e40af;
+  --green: #22c55e;
+  --red: #ef4444;
+  --orange: #f97316;
+  --purple: #a855f7;
+  --cyan: #06b6d4;
+  --text: #e2e8f0;
+  --text-dim: #94a3b8;
+  --text-muted: #64748b;
+  --border: #334155;
+  --radius: 8px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  background: var(--bg-dark);
+  color: var(--text);
+  overflow: hidden;
+  height: 100vh;
+  user-select: none;
+}
+.app { display: flex; height: 100vh; flex-direction: column; }
+.header {
+  background: var(--bg-mid); padding: 8px 16px;
+  display: flex; align-items: center; gap: 12px;
+  border-bottom: 1px solid var(--border); min-height: 48px;
+  -webkit-app-region: drag;
+}
+.header h1 { font-size: 15px; font-weight: 600; color: var(--accent); white-space: nowrap; }
+.header .gpu-badges { display: flex; gap: 6px; -webkit-app-region: no-drag; }
+.badge { font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: 600; cursor: pointer; }
+.badge.amd { background: #dc2626; color: #fff; }
+.badge.intel { background: #0071c5; color: #fff; }
+.badge.nvidia { background: #76b900; color: #000; }
+.header .spacer { flex: 1; }
+.header .btn-settings {
+  -webkit-app-region: no-drag; background: none;
+  border: 1px solid var(--border); color: var(--text-dim);
+  padding: 4px 10px; border-radius: var(--radius); cursor: pointer; font-size: 12px;
+}
+.header .btn-settings:hover { border-color: var(--accent); color: var(--accent); }
+.tabs { display: flex; background: var(--bg-mid); border-bottom: 1px solid var(--border); padding: 0 16px; }
+.tab {
+  padding: 10px 20px; cursor: pointer; color: var(--text-dim);
+  font-size: 13px; font-weight: 500; border-bottom: 2px solid transparent; transition: all 0.2s;
+}
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.main { flex: 1; display: flex; overflow: hidden; }
+.panel-left {
+  width: 280px; min-width: 200px; background: var(--bg-mid);
+  border-right: 1px solid var(--border); display: flex; flex-direction: column;
+}
+.panel-left .panel-header {
+  padding: 10px 12px; display: flex; align-items: center;
+  justify-content: space-between; border-bottom: 1px solid var(--border);
+}
+.panel-left .panel-header h3 {
+  font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px;
+}
+.file-list { flex: 1; overflow-y: auto; padding: 8px; }
+.file-item {
+  padding: 8px 10px; border-radius: var(--radius); cursor: pointer;
+  margin-bottom: 4px; display: flex; align-items: center; gap: 8px;
+  transition: background 0.15s; position: relative;
+}
+.file-item:hover { background: rgba(59,130,246,0.1); }
+.file-item.selected { background: rgba(59,130,246,0.2); border: 1px solid var(--accent-dim); }
+.file-item .file-icon { font-size: 18px; flex-shrink: 0; }
+.file-item .file-info { flex: 1; min-width: 0; }
+.file-item .file-name { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.file-item .file-meta { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+.file-item .file-remove {
+  position: absolute; right: 6px; top: 6px; width: 18px; height: 18px;
+  border-radius: 50%; background: var(--red); color: #fff; border: none;
+  font-size: 10px; cursor: pointer; display: none; align-items: center;
+  justify-content: center; line-height: 1;
+}
+.file-item:hover .file-remove { display: flex; }
+.panel-left .panel-actions { padding: 8px 12px; border-top: 1px solid var(--border); display: flex; gap: 6px; }
+.panel-right { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.tab-panel { display: none; flex: 1; flex-direction: column; overflow: hidden; padding: 16px; }
+.tab-panel.active { display: flex; }
+.controls-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+.control-group { display: flex; flex-direction: column; gap: 4px; }
+.control-group label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
+.control-group select, .control-group input[type=text], .control-group input[type=number] {
+  background: var(--bg-input); border: 1px solid var(--border); color: var(--text);
+  padding: 8px 10px; border-radius: var(--radius); font-size: 12px; outline: none;
+}
+.control-group select:focus, .control-group input:focus { border-color: var(--accent); }
+.btn {
+  padding: 8px 16px; border-radius: var(--radius); border: none;
+  font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.15s;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-success { background: var(--green); color: #fff; }
+.btn-success:hover { background: #16a34a; }
+.btn-danger { background: var(--red); color: #fff; }
+.btn-danger:hover { background: #dc2626; }
+.btn-secondary { background: var(--bg-card); color: var(--text-dim); border: 1px solid var(--border); }
+.btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+.btn-sm { padding: 5px 10px; font-size: 11px; }
+.btn-block { width: 100%; justify-content: center; }
+.action-bar { display: flex; gap: 8px; padding: 12px 0; border-top: 1px solid var(--border); margin-top: auto; }
+.preview-container { background: #000; border-radius: var(--radius); overflow: hidden; margin-bottom: 12px; position: relative; }
+.preview-container video { width: 100%; max-height: 100%; display: block; }
+.preview-controls {
+  display: flex; align-items: center; gap: 8px; padding: 6px 10px;
+  background: rgba(0,0,0,0.6);
+}
+.preview-controls input[type=range] { flex: 1; accent-color: var(--accent); }
+.preview-controls .time-display { font-size: 11px; color: var(--text-dim); font-family: monospace; white-space: nowrap; }
+.speed-controls { display: flex; gap: 4px; align-items: center; }
+.speed-btn {
+  padding: 2px 8px; font-size: 10px; background: var(--bg-card);
+  border: 1px solid var(--border); color: var(--text-dim); border-radius: 4px; cursor: pointer;
+}
+.speed-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.marker-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+.marker-btn { padding: 4px 12px; font-size: 11px; border-radius: 4px; cursor: pointer; }
+.marker-display { font-family: monospace; font-size: 12px; color: var(--cyan); background: var(--bg-input); padding: 4px 10px; border-radius: 4px; }
+.progress-bar { height: 4px; background: var(--bg-input); border-radius: 2px; overflow: hidden; margin: 8px 0; }
+.progress-bar .progress-fill { height: 100%; background: var(--accent); width: 0; transition: width 0.3s; }
+.status-text { font-size: 11px; color: var(--text-muted); font-family: monospace; }
+.log-area {
+  background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 10px; font-family: 'Cascadia Code', 'Consolas', monospace;
+  font-size: 11px; color: var(--text-dim); height: 200px; max-height: 90vh; overflow-y: auto; line-height: 1.5;
+}
+.log-area .log-info { color: var(--cyan); }
+.log-area .log-warn { color: var(--orange); }
+.log-area .log-error { color: var(--red); }
+.log-area .log-success { color: var(--green); }
+.log-area { user-select: text; -webkit-user-select: text; }
+.log-timestamp { cursor: pointer; }
+.log-timestamp:hover { text-decoration: underline; }
+.log-timestamp.flash { background: var(--accent); color: var(--bg); border-radius: 2px; }
+.resize-handle { height: 4px; cursor: ns-resize; background: var(--border); transition: background 0.15s; }
+.resize-handle:hover, .resize-handle.dragging { background: var(--accent); }
+.probe-info {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 12px; margin-bottom: 12px; font-size: 12px; max-height: 300px; overflow-y: auto;
+}
+.probe-info table { width: 100%; border-collapse: collapse; }
+.probe-info td { padding: 3px 8px; border-bottom: 1px solid rgba(51,65,85,0.3); }
+.probe-info td:first-child { color: var(--text-muted); width: 120px; white-space: nowrap; }
+.probe-info .stream-header { color: var(--accent); font-weight: 600; padding-top: 8px; }
+.custom-cmd { display: flex; flex-direction: column; gap: 8px; }
+.custom-cmd textarea {
+  background: var(--bg-input); border: 1px solid var(--border); color: var(--text);
+  padding: 10px; border-radius: var(--radius); font-family: monospace;
+  font-size: 12px; resize: vertical; min-height: 100px; outline: none;
+}
+.custom-cmd textarea:focus { border-color: var(--accent); }
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+  display: none; align-items: center; justify-content: center; z-index: 100;
+}
+.modal-overlay.active { display: flex; }
+.modal { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; width: 420px; max-width: 90vw; }
+.modal h2 { font-size: 16px; margin-bottom: 16px; }
+.modal .form-group { margin-bottom: 12px; }
+.modal .form-group label { display: block; font-size: 12px; color: var(--text-dim); margin-bottom: 4px; }
+.modal .form-group input {
+  width: 100%; background: var(--bg-input); border: 1px solid var(--border);
+  color: var(--text); padding: 8px 10px; border-radius: var(--radius); font-size: 12px;
+}
+.modal .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+.hidden { display: none !important; }
+
+/* Drag active global feedback */
+body.drag-active .panel-right { outline: 2px dashed var(--accent); outline-offset: -4px; }
+
+/* Resizable preview container */
+.preview-container {
+  resize: vertical;
+  min-height: 120px;
+  max-height: 80vh;
+  overflow: hidden;
+}
+.preview-container video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+}
+
+/* Custom resize handle for preview */
+.resize-handle {
+  height: 6px;
+  cursor: ns-resize;
+  background: var(--border);
+  border-radius: 0 0 var(--radius) var(--radius);
+  transition: background 0.15s;
+  position: relative;
+}
+.resize-handle:hover,
+.resize-handle.active {
+  background: var(--accent);
+}
+.resize-handle::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 24px;
+  height: 2px;
+  background: rgba(255,255,255,0.4);
+  border-radius: 1px;
+}
+
+/* === Preview Resize Handle === */
+.resize-handle {
+  width: 100%; height: 8px; cursor: ns-resize;
+  background: var(--border); border-radius: 4px; margin: 4px 0;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0.5; transition: opacity 0.2s;
+}
+.resize-handle:hover, .resize-handle.dragging {
+  opacity: 1; background: var(--accent);
+}
+.resize-handle::after {
+  content: ''; width: 30px; height: 2px; background: var(--text-muted); border-radius: 1px;
+}
+
+.seekbar-wrap { flex: 1; position: relative; display: flex; flex-direction: column; justify-content: center; }
+.seekbar-wrap input[type=range] { width: 100%; }
+.peak-canvas {
+  width: 100%; height: 14px;
+  pointer-events: none; border-radius: 3px;
+  background: rgba(255,255,255,0.04);
+  margin-top: 2px;
+}
+.waveform-mode-btn {
+  padding: 2px 8px; font-size: 10px; background: var(--bg-card);
+  border: 1px solid var(--border); color: var(--text-dim); border-radius: 4px; cursor: pointer;
+  white-space: nowrap; margin-left: 4px;
+}
+.waveform-mode-btn.active { background: var(--cyan); color: #000; border-color: var(--cyan); }
+
+/* === Theme: Purple Dark === */
+[data-theme="purple"] {
+  --bg-dark: #1a1028;
+  --bg-mid: #201335;
+  --bg-card: #2a1a42;
+  --bg-input: #130b22;
+  --accent: #a855f7;
+  --accent-hover: #9333ea;
+  --accent-dim: #7e22ce;
+  --green: #22c55e;
+  --red: #ef4444;
+  --orange: #f97316;
+  --cyan: #c084fc;
+  --text: #e9e2f4;
+  --text-dim: #b8a5d0;
+  --text-muted: #7c6894;
+  --border: #3d2860;
+}
+
+/* === Unified Action Toolbar === */
+.action-toolbar {
+  display: flex; align-items: center; gap: 6px;
+  -webkit-app-region: no-drag; margin-left: 8px;
+}
+.action-toolbar .btn { font-size: 12px; padding: 6px 14px; }
+.action-toolbar .action-start { display: none; }
+.action-toolbar .action-start.active { display: inline-flex; }
+
+/* === Theme Toggle === */
+.btn-theme {
+  -webkit-app-region: no-drag; background: none;
+  border: 1px solid var(--border); color: var(--text-dim);
+  padding: 4px 10px; border-radius: var(--radius); cursor: pointer;
+  font-size: 13px; transition: all 0.15s;
+}
+.btn-theme:hover { border-color: var(--accent); color: var(--accent); }
+
+
+/* === Crop Tool === */
+.crop-overlay {
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none; z-index: 10; display: none;
+  overflow: hidden;
+}
+.crop-overlay.active { display: block; pointer-events: auto; }
+.crop-rect {
+  position: absolute; border: 2px dashed var(--accent);
+  box-shadow: 0 0 0 9999px rgba(0,0,0,0.55);
+  cursor: move; z-index: 11; display: none;
+}
+.crop-rect.visible { display: block; }
+.crop-handle {
+  position: absolute; width: 10px; height: 10px;
+  background: var(--accent); border: 1px solid #fff;
+  border-radius: 2px; z-index: 12;
+}
+.crop-handle.tl { top: -5px; left: -5px; cursor: nw-resize; }
+.crop-handle.tr { top: -5px; right: -5px; cursor: ne-resize; }
+.crop-handle.bl { bottom: -5px; left: -5px; cursor: sw-resize; }
+.crop-handle.br { bottom: -5px; right: -5px; cursor: se-resize; }
+.crop-handle.tm { top: -5px; left: 50%; transform: translateX(-50%); cursor: n-resize; }
+.crop-handle.bm { bottom: -5px; left: 50%; transform: translateX(-50%); cursor: s-resize; }
+.crop-handle.ml { top: 50%; left: -5px; transform: translateY(-50%); cursor: w-resize; }
+.crop-handle.mr { top: 50%; right: -5px; transform: translateY(-50%); cursor: e-resize; }
+.crop-dims {
+  position: absolute; bottom: -22px; left: 50%; transform: translateX(-50%);
+  font-size: 10px; color: #fff; background: rgba(0,0,0,0.75);
+  padding: 2px 8px; border-radius: 3px; white-space: nowrap;
+  pointer-events: none;
+}
+.crop-panel {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 10px 12px; margin: 0 16px 8px;
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+}
+.crop-panel label { font-size: 11px; color: var(--text-dim); margin-right: 2px; }
+.crop-panel select, .crop-panel input[type=number] {
+  background: var(--bg-input); border: 1px solid var(--border); color: var(--text);
+  padding: 4px 8px; border-radius: var(--radius); font-size: 11px; width: 80px;
+}
+.crop-panel input[type=number] { width: 70px; }
+.crop-panel .btn { font-size: 11px; padding: 4px 10px; }
+.crop-panel .crop-status { font-size: 11px; color: var(--green); margin-left: auto; }
+
+  </style>
+</head>
+<body>
+<!-- FFmpeg Workstation UI - Body v2.1.0
+     Author: LeetaLeo (https://github.com/LeetaLeo)
+     License: MIT - Copyright (c) 2025 Leeta -->
+
+<!-- FFmpeg Workstation UI - Body v2.0 -->
+<div class="app">
+
+  <!-- Full-window drop overlay -->
+  <div id="dropOverlay" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; z-index:9999; background:rgba(59,130,246,0.15); border:3px dashed #3b82f6; pointer-events:none;">
+    <div style="display:flex; align-items:center; justify-content:center; height:100%; font-size:24px; color:#3b82f6;">
+      📂 释放文件以添加
+    </div>
+  </div>
+  <!-- Header -->
+  <div class="header">
+    <h1>🎬 FFmpeg Workstation</h1>
+    <div class="gpu-badges">
+      <span class="badge amd" onclick="log('AMD: h264_amf, hevc_amf, av1_amf')">AMD</span>
+      <span class="badge intel" onclick="log('Intel: h264_qsv, hevc_qsv, av1_qsv')">Intel</span>
+      <span class="badge nvidia" onclick="log('NVIDIA: h264_nvenc, hevc_nvenc, av1_nvenc')">NVIDIA</span>
+    </div>
+    <div class="spacer"></div>
+    <div class="action-toolbar" id="actionToolbar">
+      <button class="btn btn-success action-start active" data-tab="convert" onclick="doConvert()">▶ 转换</button>
+      <button class="btn btn-success action-start" data-tab="cut" onclick="doCut()">✂ 剪切</button>
+      <button class="btn btn-success action-start" data-tab="merge" onclick="doMerge()">🔗 合并</button>
+      <button class="btn btn-success action-start" data-tab="gif" onclick="doGif()">🎞 GIF</button>
+      <button class="btn btn-success action-start" data-tab="rife" onclick="doRife()">🚀 补帧</button>
+      <button class="btn btn-success action-start" data-tab="custom" onclick="doCustom()">⚡ 执行</button>
+      <button class="btn btn-success action-start" data-tab="probe" onclick="doProbe()">🔍 探测</button>
+      <button class="btn btn-danger action-start" data-tab="stop" onclick="stopTask()">⏹ 停止</button>
+    </div>
+    <button class="btn-theme" onclick="toggleTheme()" title="切换主题" style="display:none">🎨</button>
+    <button class="btn-settings" onclick="openSettings()">⚙ 设置</button>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <div class="tab active" data-tab="convert" onclick="switchTab(this)">转换</div>
+    <div class="tab" data-tab="cut" onclick="switchTab(this)">剪切</div>
+    <div class="tab" data-tab="audio" onclick="switchTab(this)">音轨</div>
+    <div class="tab" data-tab="merge" onclick="switchTab(this)">合并</div>
+    <div class="tab" data-tab="gif" onclick="switchTab(this)">动图</div>
+    <div class="tab" data-tab="rife" onclick="switchTab(this)">补帧</div>
+    <div class="tab" data-tab="custom" onclick="switchTab(this)">自定义</div>
+    <div class="tab" data-tab="probe" onclick="switchTab(this)">探测</div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="main">
+    <!-- Left Panel - File List -->
+    <div class="panel-left">
+      <div class="panel-header">
+        <h3>文件列表</h3>
+        <span id="fileCount" class="text-muted" style="font-size:11px">0 个文件</span>
+      </div>
+      <div class="file-list" id="fileList"></div>
+      <div class="panel-actions">
+        <button class="btn btn-sm btn-primary" onclick="addFiles()">+ 添加</button>
+        <button class="btn btn-sm btn-secondary" onclick="clearFiles()">清空</button>
+      </div>
+      <div class="resize-handle" id="logResizeHandle"></div>
+      <div class="log-area" id="logArea"></div>
+    </div>
+
+    <!-- Right Panel -->
+    <div class="panel-right">
+      <!-- Drop Zone removed: drag-drop handled by overlay -->
+
+      <!-- Convert Tab -->
+      <div class="tab-panel active" id="panel-convert">
+        <div class="preview-wrapper" id="previewWrapperConvert"><div class="preview-container" id="previewConvert" style="height: 280px;">
+          <video id="videoPlayer" preload="metadata"></video>
+          <div class="crop-overlay" id="cropOverlayConvert">
+            <div class="crop-rect" id="cropRectConvert">
+              <div class="crop-handle tl" data-handle="tl"></div>
+              <div class="crop-handle tr" data-handle="tr"></div>
+              <div class="crop-handle bl" data-handle="bl"></div>
+              <div class="crop-handle br" data-handle="br"></div>
+              <div class="crop-handle tm" data-handle="tm"></div>
+              <div class="crop-handle bm" data-handle="bm"></div>
+              <div class="crop-handle ml" data-handle="ml"></div>
+              <div class="crop-handle mr" data-handle="mr"></div>
+              <div class="crop-dims" id="cropDimsConvert"></div>
+            </div>
+          </div>
+        </div>
+          <div class="preview-controls">
+            <button class="btn btn-sm btn-secondary" onclick="togglePlay()">⏯</button>
+            <div class="seekbar-wrap"><input type="range" id="seekBar" min="0" max="100" value="0" oninput="seekTo(this.value)" onmousedown="seekBarDown('seekBar')" onmouseup="seekBarUp('seekBar')"><canvas class="peak-canvas" id="peakCanvasPlayer"></canvas></div>
+            <span class="time-display" id="timeDisplay">00:00 / 00:00</span>
+            <button class="waveform-mode-btn active" onclick="toggleWaveformMode()" title="切换波形样式">〰 填充</button>
+            <div class="speed-controls">
+              <button class="speed-btn" onclick="setSpeed(0.5)">0.5x</button>
+              <button class="speed-btn active" onclick="setSpeed(1)">1x</button>
+              <button class="speed-btn" onclick="setSpeed(1.5)">1.5x</button>
+              <button class="speed-btn" onclick="setSpeed(2)">2x</button>
+            </div>
+          </div>
+          <div class="peak-meter" id="peakMeterPlayer"><div class="peak-fill"></div></div>
+        <div class="resize-handle"></div>
+        <div class="controls-grid">
+          <div class="control-group">
+            <label>输出格式</label>
+            <select id="cvFormat">
+              <option value="mp4">MP4</option>
+              <option value="mkv">MKV</option>
+              <option value="avi">AVI</option>
+              <option value="webm">WebM</option>
+              <option value="mov">MOV</option>
+              <option value="flv">FLV</option>
+            </select>
+          </div>
+          <div class="control-group">
+            <label>视频编码</label>
+            <select id="cvCodec">
+              <option value="libx264">H.264 (CPU)</option>
+              <option value="libx265">H.265 (CPU)</option>
+              <option value="libvpx-vp9">VP9</option>
+              <option value="copy">Copy (无重编码)</option>
+              <option value="h264_amf">H.264 AMD AMF</option>
+              <option value="hevc_amf">H.265 AMD AMF</option>
+              <option value="h264_qsv">H.264 Intel QSV</option>
+              <option value="hevc_qsv">H.265 Intel QSV</option>
+              <option value="h264_nvenc">H.264 NVIDIA</option>
+              <option value="hevc_nvenc">H.265 NVIDIA</option>
+            </select>
+          </div>
+          <div class="control-group">
+            <label>音频编码</label>
+            <select id="cvAudio">
+              <option value="aac">AAC</option>
+              <option value="copy">Copy</option>
+              <option value="libopus">Opus</option>
+              <option value="libmp3lame">MP3</option>
+              <option value="an">无音频</option>
+            </select>
+          </div>
+          <div class="control-group">
+            <label>CRF / 码率</label>
+            <input type="text" id="cvCrf" value="23" placeholder="CRF值(0-51) 或 码率如 5M">
+          </div>
+          <div class="control-group">
+            <label>分辨率</label>
+            <select id="cvRes">
+              <option value="">原始</option>
+              <option value="1920:-2">1080p</option>
+              <option value="1280:-2">720p</option>
+              <option value="854:-2">480p</option>
+              <option value="3840:-2">4K</option>
+            </select>
+          </div>
+          <div class="control-group">
+            <label>帧率</label>
+            <select id="cvFps">
+              <option value="">原始</option>
+              <option value="24">24</option>
+              <option value="30">30</option>
+              <option value="60">60</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cut Tab -->
+      </div>
+      <div class="tab-panel" id="panel-cut">
+        <div class="preview-container" id="previewCut" style="height: 280px;">
+          <video id="videoCut" preload="metadata"></video>
+          <div class="crop-overlay" id="cropOverlayCut">
+            <div class="crop-rect" id="cropRectCut">
+              <div class="crop-handle tl" data-handle="tl"></div>
+              <div class="crop-handle tr" data-handle="tr"></div>
+              <div class="crop-handle bl" data-handle="bl"></div>
+              <div class="crop-handle br" data-handle="br"></div>
+              <div class="crop-handle tm" data-handle="tm"></div>
+              <div class="crop-handle bm" data-handle="bm"></div>
+              <div class="crop-handle ml" data-handle="ml"></div>
+              <div class="crop-handle mr" data-handle="mr"></div>
+              <div class="crop-dims" id="cropDimsCut"></div>
+            </div>
+          </div>
+        </div>
+          <div class="preview-controls">
+            <button class="btn btn-sm btn-secondary" onclick="togglePlayCut()">⏯</button>
+            <div class="seekbar-wrap"><input type="range" id="seekBarCut" min="0" max="100" value="0" oninput="seekToCut(this.value)" onmousedown="seekBarDown('seekBarCut')" onmouseup="seekBarUp('seekBarCut')"><canvas class="peak-canvas" id="peakCanvasCut"></canvas></div>
+            <span class="time-display" id="timeDisplayCut">00:00 / 00:00</span>
+            <button class="waveform-mode-btn active" onclick="toggleWaveformMode()" title="切换波形样式">〰 填充</button>
+          </div>
+          <div class="peak-meter" id="peakMeterCut"><div class="peak-fill"></div></div>
+        <div class="marker-bar">
+          <button class="btn btn-sm btn-primary marker-btn" onclick="markStart()">[ 设起点</button>
+          <button class="btn btn-sm btn-primary marker-btn" onclick="markEnd()">] 设终点</button>
+          <button class="btn btn-sm btn-secondary" onclick="clearMarkers()">清除</button>
+          <span class="marker-display" id="markerDisplay">未标记</span>
+        </div>
+        <div class="resize-handle"></div>
+        <div class="controls-grid">
+          <div class="control-group">
+            <label>手动起始时间</label>
+            <input type="text" id="cutStart" placeholder="00:00:00.000">
+          </div>
+          <div class="control-group">
+            <label>手动结束时间</label>
+            <input type="text" id="cutEnd" placeholder="00:00:10.000">
+          </div>
+          <div class="control-group">
+            <label>编码模式</label>
+            <select id="cutCodec">
+              <option value="copy">Copy (无损快速)</option>
+              <option value="">重编码 (精确)</option>
+              <option value="libx264">H.264 (CPU)</option>
+              <option value="libx265">H.265 (CPU)</option>
+              <option value="h264_amf">H.264 AMD AMF</option>
+              <option value="hevc_amf">H.265 AMD AMF</option>
+              <option value="h264_qsv">H.264 Intel QSV</option>
+              <option value="hevc_qsv">H.265 Intel QSV</option>
+              <option value="h264_nvenc">H.264 NVIDIA</option>
+              <option value="hevc_nvenc">H.265 NVIDIA</option>
+            </select>
+          </div>
+          <div class="control-group">
+            <label>CRF / 码率</label>
+            <input type="text" id="cutCrf" value="23" placeholder="CRF值(0-51) 或码率如5M">
+          </div>
+          <div class="control-group">
+            <label>输出格式</label>
+            <select id="cutFormat">
+              <option value="mp4">MP4</option>
+              <option value="mkv">MKV</option>
+              <option value="avi">AVI</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Audio Tab -->
+      <div class="tab-panel" id="panel-audio">
+        <div style="margin-bottom:12px">
+          <p style="font-size:12px;color:var(--text-dim)">音轨管理：查看、选择、删除音轨，以及人声分离</p>
+        </div>
+        
+        <!-- 音轨列表 -->
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin-bottom:12px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <h4 style="font-size:13px;color:var(--text)">音轨列表</h4>
+            <button class="btn btn-sm btn-primary" onclick="refreshAudioTracks()">刷新</button>
+          </div>
+          <div id="audioTrackList" style="max-height:150px;overflow-y:auto">
+            <p style="color:var(--text-muted);font-size:12px">选择文件后显示音轨信息</p>
+          </div>
+        </div>
+        
+        <!-- 音轨操作 -->
+        <div class="controls-grid">
+          <div class="control-group">
+            <label>输出音轨</label>
+            <select id="audioOutputTracks" multiple style="min-height:60px">
+              <option value="all">全部音轨</option>
+            </select>
+            <small style="color:var(--text-muted);font-size:10px">按住Ctrl多选</small>
+          </div>
+          <div class="control-group">
+            <label>操作</label>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-sm btn-success" onclick="extractSelectedTracks()">提取选中</button>
+              <button class="btn btn-sm btn-danger" onclick="removeSelectedTracks()">删除选中</button>
+              <button class="btn btn-sm btn-secondary" onclick="mergeAllTracks()">合并全部</button>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 人声分离 -->
+        <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+          <h4 style="font-size:13px;color:var(--accent);margin-bottom:12px">人声分离 (Demucs)</h4>
+          <div class="controls-grid">
+            <div class="control-group">
+              <label>目标音轨</label>
+              <select id="vocalTargetTrack">
+                <option value="0">音轨 0 (第一个)</option>
+              </select>
+            </div>
+            <div class="control-group">
+              <label>分离模式</label>
+              <select id="vocalStems">
+                <option value="vocals">提取人声</option>
+                <option value="other">提取伴奏</option>
+                <option value="all">全部分轨</option>
+              </select>
+            </div>
+            <div class="control-group">
+              <label>模型</label>
+              <select id="vocalModel">
+                <option value="htdemucs">htdemucs (快速)</option>
+                <option value="htdemucs_ft">htdemucs_ft (最佳)</option>
+              </select>
+            </div>
+            <div class="control-group">
+              <label>质量</label>
+              <select id="vocalShifts">
+                <option value="0">默认</option>
+                <option value="5">高质量(慢)</option>
+                <option value="10">最高(很慢)</option>
+              </select>
+            </div>
+          </div>
+          <div style="margin-top:8px;display:flex;gap:8px">
+            <button class="btn btn-success" onclick="doDemucs()">开始分离</button>
+            <button class="btn btn-danger" onclick="stopDemucs()">停止</button>
+          </div>
+          <div id="vocalResult" style="margin-top:12px;display:none">
+            <div class="probe-info" id="vocalResultInfo"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Merge Tab -->
+      <div class="tab-panel" id="panel-merge">
+        <div style="margin-bottom:12px">
+          <p style="font-size:12px;color:var(--text-dim);margin-bottom:8px">
+            将左侧文件列表中的多个视频合并为一个。拖拽文件项可调整顺序。
+          </p>
+        </div>
+        <div class="controls-grid">
+          <div class="control-group">
+            <label>合并方式</label>
+            <select id="mergeMethod">
+              <option value="concat_demuxer">Concat Demuxer (快速, 同格式)</option>
+              <option value="concat_filter">Concat Filter (重编码, 混合格式)</option>
+            </select>
+          </div>
+          <div class="control-group">
+            <label>输出格式</label>
+            <select id="mergeFormat">
+              <option value="mp4">MP4</option>
+              <option value="mkv">MKV</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- GIF Tab -->
+      <div class="tab-panel" id="panel-gif">
+        <div class="preview-container" id="previewGif" style="height: 280px;">
+          <video id="videoGif" preload="metadata"></video>
+          <div class="crop-overlay" id="cropOverlayGif">
+            <div class="crop-rect" id="cropRectGif">
+              <div class="crop-handle tl" data-handle="tl"></div>
+              <div class="crop-handle tr" data-handle="tr"></div>
+              <div class="crop-handle bl" data-handle="bl"></div>
+              <div class="crop-handle br" data-handle="br"></div>
+              <div class="crop-handle tm" data-handle="tm"></div>
+              <div class="crop-handle bm" data-handle="bm"></div>
+              <div class="crop-handle ml" data-handle="ml"></div>
+              <div class="crop-handle mr" data-handle="mr"></div>
+              <div class="crop-dims" id="cropDimsGif"></div>
+            </div>
+          </div>
+        </div>
+          <div class="preview-controls">
+            <button class="btn btn-sm btn-secondary" onclick="togglePlayGif()">⏯</button>
+            <div class="seekbar-wrap"><input type="range" id="seekBarGif" min="0" max="100" value="0" oninput="seekToGif(this.value)" onmousedown="seekBarDown('seekBarGif')" onmouseup="seekBarUp('seekBarGif')"><canvas class="peak-canvas" id="peakCanvasGif"></canvas></div>
+            <span class="time-display" id="timeDisplayGif">00:00 / 00:00</span>
+            <button class="waveform-mode-btn active" onclick="toggleWaveformMode()" title="切换波形样式">〰 填充</button>
+          </div>
+          <div class="peak-meter" id="peakMeterGif"><div class="peak-fill"></div></div>
+        <div class="marker-bar">
+          <button class="btn btn-sm btn-primary marker-btn" onclick="markGifStart()">[ 起点</button>
+          <button class="btn btn-sm btn-primary marker-btn" onclick="markGifEnd()">] 终点</button>
+          <span class="marker-display" id="gifMarkerDisplay">未标记</span>
+        </div>
+        <div class="resize-handle"></div>
+        <div class="controls-grid">
+          <div class="control-group">
+            <label>FPS</label>
+            <input type="number" id="gifFps" value="15" min="1" max="30">
+          </div>
+          <div class="control-group">
+            <label>宽度 (px)</label>
+            <input type="number" id="gifWidth" value="480" min="100" placeholder="自动">
+          </div>
+        </div>
+      </div>
+
+      <!-- RIFE Tab -->
+      <div class="tab-panel" id="panel-rife">
+        <div style="margin-bottom:12px">
+          <p style="font-size:12px;color:var(--text-dim)" id="rifeModeStatus">
+            使用 FFmpeg minterpolate 进行补帧（回退模式）。配置 RIFE 路径后自动启用 GPU 加速。
+          </p>
+        </div>
+        <div class="controls-grid">
+          <div class="control-group">
+            <label>倍率</label>
+            <select id="rifeMultiplier">
+              <option value="2">2x</option>
+              <option value="3">3x</option>
+              <option value="4">4x</option>
+            </select>
+          </div>
+          <div class="control-group">
+            <label>RIFE 模型</label>
+            <select id="rifeModel">
+              <option value="">默认</option>
+              <option value="rife-v4">RIFE v4</option>
+              <option value="rife-v4.6">RIFE v4.6</option>
+              <option value="rife-v4.7">RIFE v4.7</option>
+              <option value="rife-v4.13">RIFE v4.13</option>
+              <option value="rife-v4.13-lite">RIFE v4.13 Lite</option>
+              <option value="rife-v4.14">RIFE v4.14</option>
+              <option value="rife-v4.15">RIFE v4.15</option>
+              <option value="rife-v4.22">RIFE v4.22</option>
+              <option value="rife-v4.25">RIFE v4.25</option>
+            </select>
+          </div>
+        </div>
+        <div class="controls-grid" style="margin-top:8px">
+          <div class="control-group">
+            <label>输出编码</label>
+            <select id="rifeOutputFormat">
+              <option value="ffv1">FFV1 (无损·推荐)</option>
+              <option value="h264-lossless">H.264 无损 (兼容性好)</option>
+              <option value="png">PNG 序列帧</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Custom Tab -->
+      <div class="tab-panel" id="panel-custom">
+        <div class="custom-cmd">
+          <p style="font-size:12px;color:var(--text-dim)">
+            自定义 FFmpeg 命令参数。自动添加 -y 和输入/输出文件。
+          </p>
+          <textarea id="customArgs" placeholder="-vf "eq=brightness=0.06:saturation=1.5" -c:v libx264 -crf 23"></textarea>
+          <div class="controls-grid">
+            <div class="control-group">
+              <label>输入文件</label>
+              <input type="text" id="customInput" readonly placeholder="从左侧选择">
+            </div>
+            <div class="control-group">
+              <label>输出文件</label>
+              <input type="text" id="customOutput" placeholder="输出路径">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Probe Tab -->
+      <div class="tab-panel" id="panel-probe">
+        <div class="probe-info" id="probeInfo">
+          <p class="text-muted">选择文件后点击探测</p>
+        </div>
+      </div>
+
+      <!-- Crop Tool Panel (shared across tabs) -->
+      <div class="crop-panel" id="cropPanel">
+        <label>🎬 裁切:</label>
+        <select id="cropPreset" onchange="applyCropPreset(this.value)">
+          <option value="">关闭裁切</option>
+          <option value="1920x1080">16:9 (1920×1080)</option>
+          <option value="1080x1920">9:16 (1080×1920)</option>
+          <option value="1080x1080">1:1 (1080×1080)</option>
+          <option value="1440x1080">4:3 (1440×1080)</option>
+          <option value="custom">自定义</option>
+        </select>
+        <label>X:</label><input type="number" id="cropX" value="0" min="0" onchange="onCropInputChanged()">
+        <label>Y:</label><input type="number" id="cropY" value="0" min="0" onchange="onCropInputChanged()">
+        <label>W:</label><input type="number" id="cropW" value="0" min="0" onchange="onCropInputChanged()">
+        <label>H:</label><input type="number" id="cropH" value="0" min="0" onchange="onCropInputChanged()">
+        <button class="btn btn-sm btn-secondary" onclick="resetCrop()">重置</button>
+        <span class="crop-status" id="cropStatus"></span>
+      </div>
+      <!-- Progress & Log (shared) -->
+      <div style="padding:0 16px 12px">
+        <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+        <div class="status-text" id="statusText">就绪</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div class="modal-overlay" id="settingsModal">
+    <div class="modal">
+      <h2>⚙ 设置</h2>
+      <div class="form-group">
+        <label>FFmpeg 路径</label>
+        <input type="text" id="cfgFfmpeg" placeholder="留空使用系统 PATH">
+      </div>
+      <div class="form-group">
+        <label>FFprobe 路径</label>
+        <input type="text" id="cfgFfprobe" placeholder="留空使用系统 PATH">
+      </div>
+      <div class="form-group">
+        <label>RIFE 路径</label>
+        <input type="text" id="cfgRife" placeholder="RIFE 可执行文件路径">
+      </div>
+      <div class="form-group">
+        <label>主题</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <select id="cfgTheme" style="flex:1">
+            <option value="default">默认 (青色)</option>
+            <option value="purple">紫色</option>
+          </select>
+          <button class="btn btn-sm btn-secondary" onclick="toggleTheme();document.getElementById('cfgTheme').value=getTheme()">切换</button>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeSettings()">取消</button>
+        <button class="btn btn-primary" onclick="saveSettings()">保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+  <script>
+// FFmpeg Workstation UI - Renderer App v2.1.0
+// Author: LeetaLeo (https://github.com/LeetaLeo)
+// License: MIT - Copyright (c) 2025 LeetaLeo
+
+// FFmpeg Workstation UI - App v2.0
+// 43+ functions for video processing
+
+// ========== State ==========
+let files = [];
+let selectedFile = null;
+let cutStart = null;
+let cutEnd = null;
+let gifStart = null;
+let gifEnd = null;
+
+// ========== File Management ==========
+
+async function addFiles() {
+  const paths = await window.electronAPI.openFiles();
+  if (!paths || paths.length === 0) return;
+  paths.forEach(p => addFile(p));
+  updateFileCount();
+}
+
+function addFile(filePath) {
+  if (files.find(f => f.path === filePath)) return;
+  const name = filePath.split(/[\\/]/).pop();
+  const ext = name.split('.').pop().toLowerCase();
+  const isVideo = ['mp4','mkv','avi','mov','webm','flv','wmv','ts','m2ts'].includes(ext);
+  const isAudio = ['mp3','wav','flac','aac','ogg','m4a','wma'].includes(ext);
+
+  const file = {
+    path: filePath,
+    name: name,
+    ext: ext,
+    isVideo: isVideo,
+    isAudio: isAudio,
+    info: null
+  };
+  files.push(file);
+  renderFileList();
+
+  if (files.length === 1) {
+    selectFile(file);
+  }
+  showDropZone(false);
+}
+
+function removeFile(filePath) {
+  files = files.filter(f => f.path !== filePath);
+  if (selectedFile && selectedFile.path === filePath) {
+    selectedFile = files.length > 0 ? files[0] : null;
+  }
+  renderFileList();
+  if (selectedFile) selectFile(selectedFile);
+  if (files.length === 0) showDropZone(true);
+  updateFileCount();
+}
+
+function clearFiles() {
+  files = [];
+  selectedFile = null;
+  renderFileList();
+  showDropZone(true);
+  updateFileCount();
+  stopPlayer();
+}
+
+function selectFile(file) {
+  selectedFile = file;
+  document.querySelectorAll('.file-item').forEach(el => {
+    el.classList.toggle('selected', el.dataset.path === file.path);
+  });
+
+  // Update video players - use file:// URL directly (webSecurity:false allows it)
+  const filePath = file.path.replace(/\\/g, '/');
+  const url = 'file:///' + filePath;
+  const videoIds = ['videoPlayer', 'videoCut', 'videoGif'];
+  videoIds.forEach(id => {
+    const v = document.getElementById(id);
+    if (v) {
+      v.onerror = function() {
+        log('[Preview] Video error: code=' + (v.error ? v.error.code : '?'), 'error');
+      };
+      v.onloadeddata = function() {
+        log('[Preview] Loaded: ' + file.name + ' (' + Math.round(v.duration) + 's)', 'success');
+      };
+      v.src = url;
+      v.load();
+    }
+  });
+
+  // Update custom tab input
+  const ci = document.getElementById('customInput');
+  if (ci) ci.value = file.path;
+
+  log('Selected: ' + file.name, 'info');
+
+  // Load waveform
+  _loadWaveform(file.path);
+
+  // Auto probe
+  doProbe();
+  
+  // Auto refresh audio tracks
+  refreshAudioTracks();
+}
+
+function renderFileList() {
+  const list = document.getElementById('fileList');
+  if (!list) return;
+  list.innerHTML = '';
+  files.forEach(f => {
+    const div = document.createElement('div');
+    div.className = 'file-item' + (selectedFile && selectedFile.path === f.path ? ' selected' : '');
+    div.dataset.path = f.path;
+    div.onclick = () => selectFile(f);
+    div.innerHTML = `
+      <span class="file-icon">${f.isVideo ? '🎬' : f.isAudio ? '🎵' : '📄'}</span>
+      <div class="file-info">
+        <div class="file-name" title="${f.path}">${f.name}</div>
+        <div class="file-meta">${f.ext.toUpperCase()}</div>
+      </div>
+      <button class="file-remove" onclick="event.stopPropagation();removeFile('${f.path.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')">✕</button>
+    `;
+    list.appendChild(div);
+  });
+}
+
+function updateFileCount() {
+  const el = document.getElementById('fileCount');
+  if (el) el.textContent = files.length + ' 个文件';
+}
+
+function showDropZone(show) {
+  // dropZone element removed; no-op
+}
+
+
+// Stop all video players and clear sources
+function stopAllVideos() {
+  ['videoPlayer', 'videoCut', 'videoGif'].forEach(id => {
+    const v = document.getElementById(id);
+    if (v) { v.pause(); v.removeAttribute('src'); v.load(); }
+  });
+}
+
+// ========== Video Player ==========
+
+function togglePlay() { togglePlayVideo('videoPlayer'); }
+function togglePlayCut() { togglePlayVideo('videoCut'); }
+function togglePlayGif() { togglePlayVideo('videoGif'); }
+
+function togglePlayVideo(id) {
+  const v = document.getElementById(id);
+  if (!v) return;
+  if (v.paused) v.play(); else v.pause();
+}
+
+function seekTo(val) { seekVideo('videoPlayer', 'seekBar', val); }
+function seekToCut(val) { seekVideo('videoCut', 'seekBarCut', val); }
+function seekToGif(val) { seekVideo('videoGif', 'seekBarGif', val); }
+
+function seekVideo(videoId, barId, val) {
+  const v = document.getElementById(videoId);
+  if (!v || !v.duration) return;
+  v.currentTime = (val / 100) * v.duration;
+}
+
+// Seek bar: pause timeupdate while dragging to avoid jitter
+let _seekDragging = {};
+function seekBarDown(barId) { _seekDragging[barId] = true; }
+function seekBarUp(barId) { _seekDragging[barId] = false; }
+
+function stopPlayer() {
+  ['videoPlayer','videoCut','videoGif'].forEach(id => {
+    const v = document.getElementById(id);
+    if (v) { v.pause(); v.currentTime = 0; }
+  });
+}
+
+function setSpeed(rate) {
+  const v = document.getElementById('videoPlayer');
+  if (v) v.playbackRate = rate;
+  document.querySelectorAll('.speed-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.textContent === rate + 'x');
+  });
+}
+
+function formatTime(sec) {
+  if (isNaN(sec) || sec < 0) return '00:00';
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = Math.floor(sec % 60);
+  const ms = Math.floor((sec % 1) * 1000);
+  if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${String(ms).padStart(3,'0')}`;
+  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${String(ms).padStart(3,'0')}`;
+}
+
+function timeToSeconds(t) {
+  const parts = t.split(':');
+  if (parts.length === 3) {
+    return parseFloat(parts[0])*3600 + parseFloat(parts[1])*60 + parseFloat(parts[2]);
+  } else if (parts.length === 2) {
+    return parseFloat(parts[0])*60 + parseFloat(parts[1]);
+  }
+  return parseFloat(t);
+}
+
+// Setup timeupdate listeners
+function setupTimeUpdate(videoId, displayId, barId) {
+  const v = document.getElementById(videoId);
+  if (!v) return;
+  v.addEventListener('timeupdate', () => {
+    const disp = document.getElementById(displayId);
+    const bar = document.getElementById(barId);
+    if (disp) disp.textContent = formatTime(v.currentTime) + ' / ' + formatTime(v.duration);
+    // Don't update bar while user is dragging it
+    if (bar && !_seekDragging[barId]) bar.value = v.duration ? (v.currentTime / v.duration * 100) : 0;
+  });
+}
+
+// ========== Markers ==========
+
+function markStart() {
+  const v = document.getElementById('videoCut');
+  if (!v) return;
+  cutStart = v.currentTime;
+  document.getElementById('cutStart').value = formatTime(cutStart);
+  updateMarkerDisplay();
+}
+
+function markEnd() {
+  const v = document.getElementById('videoCut');
+  if (!v) return;
+  cutEnd = v.currentTime;
+  document.getElementById('cutEnd').value = formatTime(cutEnd);
+  updateMarkerDisplay();
+}
+
+function clearMarkers() {
+  cutStart = null;
+  cutEnd = null;
+  document.getElementById('cutStart').value = '';
+  document.getElementById('cutEnd').value = '';
+  updateMarkerDisplay();
+}
+
+function updateMarkerDisplay() {
+  const el = document.getElementById('markerDisplay');
+  if (!el) return;
+  if (cutStart !== null && cutEnd !== null) {
+    el.textContent = formatTime(cutStart) + ' → ' + formatTime(cutEnd);
+  } else if (cutStart !== null) {
+    el.textContent = formatTime(cutStart) + ' → ?';
+  } else if (cutEnd !== null) {
+    el.textContent = '? → ' + formatTime(cutEnd);
+  } else {
+    el.textContent = '未标记';
+  }
+}
+
+function markGifStart() {
+  const v = document.getElementById('videoGif');
+  if (!v) return;
+  gifStart = v.currentTime;
+  updateGifMarkerDisplay();
+}
+
+function markGifEnd() {
+  const v = document.getElementById('videoGif');
+  if (!v) return;
+  gifEnd = v.currentTime;
+  updateGifMarkerDisplay();
+}
+
+function updateGifMarkerDisplay() {
+  const el = document.getElementById('gifMarkerDisplay');
+  if (!el) return;
+  if (gifStart !== null && gifEnd !== null) {
+    el.textContent = formatTime(gifStart) + ' → ' + formatTime(gifEnd);
+  } else if (gifStart !== null) {
+    el.textContent = formatTime(gifStart) + ' → ?';
+  } else if (gifEnd !== null) {
+    el.textContent = '? → ' + formatTime(gifEnd);
+  } else {
+    el.textContent = '未标记';
+  }
+}
+// ========== Tab Switching ==========
+
+function switchTab(tabEl) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  tabEl.classList.add('active');
+  const panel = document.getElementById('panel-' + tabEl.dataset.tab);
+  if (panel) panel.classList.add('active');
+
+  // Update unified toolbar buttons
+  const tabName = tabEl.dataset.tab;
+  document.querySelectorAll('#actionToolbar .action-start').forEach(btn => {
+    if (btn.dataset.tab === 'stop') {
+      // Show stop button for tabs that have tasks
+      btn.classList.toggle('active', ['convert','cut','merge','gif','rife','custom'].includes(tabName));
+    } else {
+      btn.classList.toggle('active', btn.dataset.tab === tabName);
+    }
+  });
+
+  // Pause all videos when switching tabs to prevent background audio
+  ['videoPlayer', 'videoCut', 'videoGif'].forEach(id => {
+    const v = document.getElementById(id);
+    if (v && !v.paused) v.pause();
+  });
+
+  // Hide drop zone when switching tabs - each tab handles its own state
+  showDropZone(false);
+
+  // Update crop overlay visibility for new tab
+  if (cropActive) updateCropUI();
+}
+
+// ========== Logging ==========
+
+function log(msg, type) {
+  const area = document.getElementById('logArea');
+  if (!area) return;
+  const cls = type ? 'log-' + type : '';
+  const time = new Date().toLocaleTimeString('zh-CN', {hour12:false});
+  const div = document.createElement('div');
+  div.className = cls;
+  div.style.userSelect = 'text';
+  div.style.webkitUserSelect = 'text';
+  const ts = document.createElement('span');
+  ts.className = 'log-timestamp';
+  ts.textContent = `[${time}] `;
+  ts.title = '点击复制此行';
+  const textSpan = document.createElement('span');
+  textSpan.className = 'log-text';
+  textSpan.textContent = msg;
+  const fullLine = `[${time}] ${msg}`;
+  ts.addEventListener('click', () => {
+    navigator.clipboard.writeText(fullLine);
+    ts.classList.add('flash');
+    setTimeout(() => ts.classList.remove('flash'), 300);
+  });
+  div.appendChild(ts);
+  div.appendChild(textSpan);
+  area.appendChild(div);
+  area.scrollTop = area.scrollHeight;
+}
+
+function setStatus(text) {
+  const el = document.getElementById('statusText');
+  if (el) el.textContent = text;
+}
+
+function setProgress(pct) {
+  const el = document.getElementById('progressFill');
+  if (el) el.style.width = Math.min(100, Math.max(0, pct)) + '%';
+}
+
+// ========== FFmpeg Operations ==========
+
+async function doConvert() {
+  if (!selectedFile) { log('请先选择文件', 'warn'); return; }
+
+  const format = document.getElementById('cvFormat').value;
+  const codec = document.getElementById('cvCodec').value;
+  const audio = document.getElementById('cvAudio').value;
+  const crf = document.getElementById('cvCrf').value;
+  const res = document.getElementById('cvRes').value;
+  const fps = document.getElementById('cvFps').value;
+
+  const outName = selectedFile.name.replace(/\.[^.]+$/, '') + '_converted.' + format;
+  const outPath = await window.electronAPI.saveFile(outName);
+  if (!outPath) return;
+
+  // Warn if crop is active with copy codec (can't filter with stream copy)
+  const _cropActive = cropActive;
+  if (_cropActive && codec === 'copy') {
+    log('⚠ 裁切需要重编码，请更换编码模式（非Copy）', 'warn');
+    return;
+  }
+  const args = ['-c:v', codec];
+  if (codec !== 'copy' && crf) {
+    if (crf.includes('M') || crf.includes('k')) {
+      args.push('-b:v', crf);
+    } else {
+      args.push('-crf', crf);
+    }
+  }
+  if (audio === 'an') {
+    args.push('-an');
+  } else {
+    args.push('-c:a', audio);
+  }
+  // Build video filter chain (crop + scale)
+  const vfParts = [];
+  const cropF = getCropFilter();
+  if (cropF) vfParts.push(cropF);
+  if (res) vfParts.push('scale=' + res);
+  if (vfParts.length > 0) args.push('-vf', vfParts.join(','));
+  if (fps) args.push('-r', fps);
+
+  log('开始转换: ' + selectedFile.name, 'info');
+  setStatus('转换中...');
+  setProgress(0);
+
+  const result = await window.electronAPI.convert({
+    inputPath: selectedFile.path,
+    outputPath: outPath,
+    args: args
+  });
+
+  if (result.success) {
+    log('转换完成: ' + outPath, 'success');
+    setStatus('转换完成');
+    setProgress(100);
+  } else {
+    log('转换失败: ' + result.error, 'error');
+    setStatus('转换失败');
+  }
+}
+
+async function doCut() {
+  if (!selectedFile) { log('请先选择文件', 'warn'); return; }
+
+  let startTime = document.getElementById('cutStart').value;
+  let endTime = document.getElementById('cutEnd').value;
+
+  // Use markers if manual fields empty
+  if (!startTime && cutStart !== null) startTime = formatTime(cutStart);
+  if (!endTime && cutEnd !== null) endTime = formatTime(cutEnd);
+
+  if (!startTime || !endTime) {
+    log('请设置起止时间', 'warn');
+    return;
+  }
+
+  const codec = document.getElementById('cutCodec').value;
+  const crf = document.getElementById('cutCrf').value;
+  const format = document.getElementById('cutFormat').value;
+  const outName = selectedFile.name.replace(/\.[^.]+$/, '') + '_cut.' + format;
+  const outPath = await window.electronAPI.saveFile(outName);
+  if (!outPath) return;
+
+  log('开始剪切: ' + startTime + ' → ' + endTime, 'info');
+  setStatus('剪切中...');
+  setProgress(0);
+
+  const cropF = getCropFilter();
+  const result = await window.electronAPI.cut({
+    inputPath: selectedFile.path,
+    outputPath: outPath,
+    startTime: startTime,
+    endTime: endTime,
+    codec: codec,
+    crf: crf,
+    crop: cropF || null
+  });
+
+  if (result.success) {
+    log('剪切完成: ' + outPath, 'success');
+    setStatus('剪切完成');
+    setProgress(100);
+  } else {
+    log('剪切失败: ' + result.error, 'error');
+    setStatus('剪切失败');
+  }
+}
+
+async function doMerge() {
+  if (files.length < 2) { log('至少需要2个文件', 'warn'); return; }
+
+  const method = document.getElementById('mergeMethod').value;
+  const format = document.getElementById('mergeFormat').value;
+  const outName = 'merged_' + Date.now() + '.' + format;
+  const outPath = await window.electronAPI.saveFile(outName);
+  if (!outPath) return;
+
+  log('开始合并 ' + files.length + ' 个文件...', 'info');
+  setStatus('合并中...');
+  setProgress(0);
+
+  const result = await window.electronAPI.merge({
+    inputPaths: files.map(f => f.path),
+    outputPath: outPath,
+    method: method
+  });
+
+  if (result.success) {
+    log('合并完成: ' + outPath, 'success');
+    setStatus('合并完成');
+    setProgress(100);
+  } else {
+    log('合并失败: ' + result.error, 'error');
+    setStatus('合并失败');
+  }
+}
+
+async function doGif() {
+  if (!selectedFile) { log('请先选择文件', 'warn'); return; }
+
+  let startTime = gifStart !== null ? formatTime(gifStart) : document.getElementById('cutStart')?.value;
+  let endTime = gifEnd !== null ? formatTime(gifEnd) : document.getElementById('cutEnd')?.value;
+
+  if (!startTime || !endTime) {
+    log('请标记 GIF 起止时间', 'warn');
+    return;
+  }
+
+  const fps = document.getElementById('gifFps').value;
+  const width = document.getElementById('gifWidth').value;
+
+  const outName = selectedFile.name.replace(/\.[^.]+$/, '') + '.gif';
+  const outPath = await window.electronAPI.saveFile(outName, [{ name: 'GIF', extensions: ['gif'] }]);
+  if (!outPath) return;
+
+  log('生成 GIF: ' + startTime + ' → ' + endTime, 'info');
+  setStatus('生成 GIF...');
+  setProgress(0);
+
+  const cropF = getCropFilter();
+  const result = await window.electronAPI.gif({
+    inputPath: selectedFile.path,
+    outputPath: outPath,
+    startTime: startTime,
+    endTime: endTime,
+    fps: fps,
+    width: width,
+    crop: cropF || null
+  });
+
+  if (result.success) {
+    log('GIF 完成: ' + outPath, 'success');
+    setStatus('GIF 完成');
+    setProgress(100);
+  } else {
+    log('GIF 失败: ' + result.error, 'error');
+    setStatus('GIF 失败');
+  }
+}
+
+async function doRife() {
+  if (!selectedFile) { log('请先选择文件', 'warn'); return; }
+
+  const multiplier = parseInt(document.getElementById('rifeMultiplier').value);
+  const model = document.getElementById('rifeModel').value;
+  const outputFormat = document.getElementById('rifeOutputFormat').value;
+
+  const ext = outputFormat === 'png' ? '.png' : '.mkv';
+  const outName = selectedFile.name.replace(/\.[^.]+$/, '') + '_x' + multiplier + ext;
+  const outPath = await window.electronAPI.saveFile(outName);
+  if (!outPath) return;
+
+  log('开始 RIFE 补帧 x' + multiplier + ' (编码: ' + outputFormat + ')...', 'info');
+  setStatus('补帧中...');
+  setProgress(0);
+
+  const result = await window.electronAPI.rife({
+    inputPath: selectedFile.path,
+    outputPath: outPath,
+    multiplier: multiplier,
+    model: model,
+    outputFormat: outputFormat
+  });
+
+  if (result.success) {
+    log('补帧完成: ' + outPath, 'success');
+    setStatus('补帧完成');
+    setProgress(100);
+  } else {
+    log('补帧失败: ' + result.error, 'error');
+    setStatus('补帧失败');
+  }
+}
+
+async function doCustom() {
+  if (!selectedFile) { log('请先选择文件', 'warn'); return; }
+
+  const argsStr = document.getElementById('customArgs').value.trim();
+  if (!argsStr) { log('请输入 FFmpeg 参数', 'warn'); return; }
+
+  const outPath = await window.electronAPI.saveFile('output.mp4');
+  if (!outPath) return;
+
+  // Replace $INPUT and $OUTPUT in args
+  const fullArgs = argsStr
+    .replace(/\$INPUT/g, selectedFile.path)
+    .replace(/\$OUTPUT/g, outPath);
+
+  log('执行自定义命令...', 'info');
+  setStatus('执行中...');
+  setProgress(0);
+
+  const result = await window.electronAPI.custom(fullArgs);
+
+  if (result.success) {
+    log('执行完成: ' + outPath, 'success');
+    setStatus('执行完成');
+    setProgress(100);
+  } else {
+    log('执行失败: ' + result.error, 'error');
+    setStatus('执行失败');
+  }
+}
+
+async function doProbe() {
+  if (!selectedFile) { log('请先选择文件', 'warn'); return; }
+
+  log('探测: ' + selectedFile.name, 'info');
+  const result = await window.electronAPI.probeInfo(selectedFile.path);
+  const el = document.getElementById('probeInfo');
+  if (!el) return;
+
+  if (!result.success) {
+    el.innerHTML = '<p style="color:var(--red)">探测失败: ' + result.error + '</p>';
+    return;
+  }
+
+  const data = result.data;
+  let html = '<table>';
+
+  // Format info
+  if (data.format) {
+    html += '<tr><td colspan="2" class="stream-header">📋 格式信息</td></tr>';
+    const fmt = data.format;
+    html += `<tr><td>格式</td><td>${fmt.format_long_name || fmt.format_name}</td></tr>`;
+    html += `<tr><td>时长</td><td>${formatTime(parseFloat(fmt.duration))}</td></tr>`;
+    html += `<tr><td>大小</td><td>${(parseInt(fmt.size) / 1024 / 1024).toFixed(2)} MB</td></tr>`;
+    html += `<tr><td>码率</td><td>${(parseInt(fmt.bit_rate) / 1000).toFixed(0)} kbps</td></tr>`;
+    if (fmt.tags) {
+      for (const [k, v] of Object.entries(fmt.tags)) {
+        html += `<tr><td>${k}</td><td>${v}</td></tr>`;
+      }
+    }
+  }
+
+  // Streams
+  if (data.streams) {
+    data.streams.forEach((s, i) => {
+      const type = s.codec_type;
+      const icon = type === 'video' ? '🎬' : type === 'audio' ? '🎵' : '📝';
+      html += `<tr><td colspan="2" class="stream-header">${icon} 流 #${i} (${type})</td></tr>`;
+      html += `<tr><td>编码</td><td>${s.codec_name} (${s.codec_long_name || ''})</td></tr>`;
+      if (type === 'video') {
+        html += `<tr><td>分辨率</td><td>${s.width} × ${s.height}</td></tr>`;
+        html += `<tr><td>帧率</td><td>${s.r_frame_rate}</td></tr>`;
+        html += `<tr><td>像素格式</td><td>${s.pix_fmt}</td></tr>`;
+        if (s.bit_rate) html += `<tr><td>码率</td><td>${(parseInt(s.bit_rate)/1000).toFixed(0)} kbps</td></tr>`;
+      }
+      if (type === 'audio') {
+        html += `<tr><td>采样率</td><td>${s.sample_rate} Hz</td></tr>`;
+        html += `<tr><td>声道</td><td>${s.channels}</td></tr>`;
+        if (s.bit_rate) html += `<tr><td>码率</td><td>${(parseInt(s.bit_rate)/1000).toFixed(0)} kbps</td></tr>`;
+      }
+      if (s.tags) {
+        for (const [k, v] of Object.entries(s.tags)) {
+          html += `<tr><td>${k}</td><td>${v}</td></tr>`;
+        }
+      }
+    });
+  }
+
+  html += '</table>';
+  el.innerHTML = html;
+}
+
+async function stopTask() {
+  const result = await window.electronAPI.kill();
+  if (result.success) {
+    log('已停止', 'warn');
+    setStatus('已停止');
+  }
+}
+
+// ========== Demucs Vocal Separation ==========
+
+// ========== Audio Track Management ==========
+
+let audioTracks = [];
+
+async function refreshAudioTracks() {
+  if (!selectedFile) {
+    log('请先选择文件', 'warn');
+    return;
+  }
+  
+  const result = await window.electronAPI.getAudioTracks(selectedFile.path);
+  if (result.success) {
+    audioTracks = result.tracks;
+    renderAudioTrackList();
+    updateTrackSelectors();
+    log(`找到 ${audioTracks.length} 个音轨`, 'info');
+  } else {
+    log('获取音轨失败: ' + result.error, 'error');
+  }
+}
+
+function renderAudioTrackList() {
+  const container = document.getElementById('audioTrackList');
+  if (!audioTracks.length) {
+    container.innerHTML = '<p style="color:var(--text-muted);font-size:12px">无音轨</p>';
+    return;
+  }
+  
+  let html = '<div style="display:flex;flex-direction:column;gap:4px">';
+  audioTracks.forEach((t, i) => {
+    const bitrate = t.bitrate ? `${Math.round(parseInt(t.bitrate)/1000)}kbps` : '未知';
+    html += `
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--bg-input);border-radius:4px;font-size:11px">
+        <span style="color:var(--accent);font-weight:600;width:60px">Track ${i}</span>
+        <span style="color:var(--text)">${t.codec}</span>
+        <span style="color:var(--text-dim)">${t.channels}ch</span>
+        <span style="color:var(--text-dim)">${t.sampleRate}Hz</span>
+        <span style="color:var(--text-dim)">${bitrate}</span>
+        ${t.language !== 'und' ? `<span style="color:var(--cyan)">${t.language}</span>` : ''}
+        ${t.title ? `<span style="color:var(--orange)">${t.title}</span>` : ''}
+      </div>
+    `;
+  });
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+function updateTrackSelectors() {
+  const selectors = ['audioOutputTracks', 'vocalTargetTrack'];
+  selectors.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    
+    el.innerHTML = '';
+    audioTracks.forEach((t, i) => {
+      const opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = `Track ${i} (${t.codec}, ${t.channels}ch)`;
+      el.appendChild(opt);
+    });
+  });
+}
+
+async function extractSelectedTracks() {
+  if (!selectedFile) {
+    log('请先选择文件', 'warn');
+    return;
+  }
+  
+  const select = document.getElementById('audioOutputTracks');
+  const selected = Array.from(select.selectedOptions).map(o => parseInt(o.value)).filter(v => !isNaN(v));
+  
+  if (!selected.length) {
+    log('请选择要提取的音轨', 'warn');
+    return;
+  }
+  
+  const outputPath = selectedFile.path.replace(/\.[^.]+$/, '_audio.mp3');
+  setStatus('正在提取音轨...');
+  
+  const result = await window.electronAPI.extractAudioTracks({
+    inputPath: selectedFile.path,
+    outputPath,
+    trackIndices: selected
+  });
+  
+  if (result.success) {
+    log('音轨提取完成: ' + outputPath, 'success');
+    setStatus('提取完成');
+  } else {
+    log('提取失败: ' + result.error, 'error');
+    setStatus('提取失败');
+  }
+}
+
+async function removeSelectedTracks() {
+  if (!selectedFile) {
+    log('请先选择文件', 'warn');
+    return;
+  }
+  
+  const select = document.getElementById('audioOutputTracks');
+  const selected = Array.from(select.selectedOptions).map(o => parseInt(o.value)).filter(v => !isNaN(v));
+  
+  if (!selected.length) {
+    log('请选择要保留的音轨', 'warn');
+    return;
+  }
+  
+  const outputPath = selectedFile.path.replace(/\.[^.]+$/, '_trimmed.mp4');
+  setStatus('正在处理...');
+  
+  const result = await window.electronAPI.removeAudioTracks({
+    inputPath: selectedFile.path,
+    outputPath,
+    keepIndices: selected
+  });
+  
+  if (result.success) {
+    log('音轨处理完成: ' + outputPath, 'success');
+    setStatus('处理完成');
+  } else {
+    log('处理失败: ' + result.error, 'error');
+    setStatus('处理失败');
+  }
+}
+
+async function mergeAllTracks() {
+  if (!selectedFile) {
+    log('请先选择文件', 'warn');
+    return;
+  }
+  
+  const outputPath = selectedFile.path.replace(/\.[^.]+$/, '_merged.mp4');
+  setStatus('正在合并音轨...');
+  
+  const result = await window.electronAPI.mergeAudioTracks({
+    inputPath: selectedFile.path,
+    outputPath
+  });
+  
+  if (result.success) {
+    log('音轨合并完成: ' + outputPath, 'success');
+    setStatus('合并完成');
+  } else {
+    log('合并失败: ' + result.error, 'error');
+    setStatus('合并失败');
+  }
+}
+
+// ========== Demucs Vocal Separation ==========
+
+async function doDemucs() {
+  if (!selectedFile) {
+    log('请先选择文件', 'warn');
+    return;
+  }
+  
+  const trackSelect = document.getElementById('vocalTargetTrack');
+  const trackIndex = parseInt(trackSelect.value) || 0;
+  const stems = document.getElementById('vocalStems').value;
+  const model = document.getElementById('vocalModel').value;
+  const shifts = parseInt(document.getElementById('vocalShifts').value) || 0;
+  
+  document.getElementById('vocalResult').style.display = 'none';
+  
+  // If multiple tracks, extract target track first
+  let inputPath = selectedFile.path;
+  if (audioTracks.length > 1) {
+    log(`提取 Track ${trackIndex} 用于分离...`, 'info');
+    const extractResult = await window.electronAPI.extractForDemucs({
+      inputPath: selectedFile.path,
+      trackIndex
+    });
+    
+    if (extractResult.success) {
+      inputPath = extractResult.outputPath;
+      log('Track 提取完成', 'success');
+    } else {
+      log('Track 提取失败: ' + extractResult.error, 'error');
+      return;
+    }
+  }
+  
+  setStatus('正在分离人声...');
+  log(`开始人声分离: ${selectedFile.name}`, 'info');
+  log(`模式: ${stems}, 模型: ${model}`, 'info');
+  
+  const result = await window.electronAPI.demucs({
+    inputPath,
+    model,
+    stems,
+    shifts
+  });
+  
+  if (result.success) {
+    log('人声分离完成!', 'success');
+    setStatus('分离完成');
+    
+    const resultDiv = document.getElementById('vocalResult');
+    const resultInfo = document.getElementById('vocalResultInfo');
+    resultDiv.style.display = 'block';
+    
+    const getBaseName = (p) => p ? p.split(/[/\\]/).pop() : '';
+    let html = '<table>';
+    html += `<tr><td>输出目录</td><td>${result.outputDir}</td></tr>`;
+    
+    if (result.outputs) {
+      if (result.outputs.vocals) html += `<tr><td>人声</td><td style="color:var(--green)">${getBaseName(result.outputs.vocals)}</td></tr>`;
+      if (result.outputs.accompaniment) html += `<tr><td>伴奏</td><td style="color:var(--cyan)">${getBaseName(result.outputs.accompaniment)}</td></tr>`;
+      if (result.outputs.drums) html += `<tr><td>鼓</td><td>${getBaseName(result.outputs.drums)}</td></tr>`;
+      if (result.outputs.bass) html += `<tr><td>贝斯</td><td>${getBaseName(result.outputs.bass)}</td></tr>`;
+      if (result.outputs.other) html += `<tr><td>其他</td><td>${getBaseName(result.outputs.other)}</td></tr>`;
+    }
+    html += '</table>';
+    resultInfo.innerHTML = html;
+  } else {
+    log('分离失败: ' + result.error, 'error');
+    setStatus('分离失败');
+  }
+}
+
+async function stopDemucs() {
+  const result = await window.electronAPI.demucsKill();
+  if (result.success) {
+    log('已停止', 'warn');
+    setStatus('已停止');
+  }
+}
+
+// ========== Settings ==========
+
+async function openSettings() {
+  const cfg = await window.electronAPI.getConfig();
+  document.getElementById('cfgFfmpeg').value = cfg.ffmpegPath || '';
+  document.getElementById('cfgFfprobe').value = cfg.ffprobePath || '';
+  document.getElementById('cfgRife').value = cfg.rifePath || '';
+  document.getElementById('cfgTheme').value = getTheme();
+  document.getElementById('settingsModal').classList.add('active');
+  updateRifeModeStatus(cfg.rifePath);
+}
+
+function closeSettings() {
+  document.getElementById('settingsModal').classList.remove('active');
+}
+
+async function saveSettings() {
+  const cfg = {
+    ffmpegPath: document.getElementById('cfgFfmpeg').value.trim(),
+    ffprobePath: document.getElementById('cfgFfprobe').value.trim(),
+    rifePath: document.getElementById('cfgRife').value.trim()
+  };
+  await window.electronAPI.saveConfig(cfg);
+  closeSettings();
+  log('设置已保存', 'success');
+  updateRifeModeStatus(cfg.rifePath);
+}
+
+function updateRifeModeStatus(rifePath) {
+  const el = document.getElementById('rifeModeStatus');
+  if (!el) return;
+  if (rifePath && rifePath.trim()) {
+    el.textContent = '✅ RIFE 模式：使用 GPU 加速补帧 (' + rifePath.split(/[/\\]/).pop() + ')';
+    el.style.color = '#4caf50';
+  } else {
+    el.textContent = '⚠ 回退模式：使用 FFmpeg minterpolate（较慢）。在设置中配置 RIFE 路径可启用 GPU 加速。';
+    el.style.color = 'var(--text-dim)';
+  }
+}
+
+// ========== Drag & Drop ==========
+
+function setupDragDrop() {
+  const overlay = document.getElementById('dropOverlay');
+  let dragCounter = 0;
+
+  // Use window-level capture phase listeners for maximum reliability
+  // Window is higher in the event chain than document, and capture phase
+  // fires before any child element can stop propagation
+  window.addEventListener('dragenter', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter++;
+    if (overlay) overlay.style.display = 'block';
+  }, true);
+
+  window.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter--;
+    if (dragCounter <= 0) {
+      dragCounter = 0;
+      if (overlay) overlay.style.display = 'none';
+    }
+  }, true);
+
+  window.addEventListener('dragover', (e) => {
+    // CRITICAL: preventDefault() on dragover is required by W3C spec
+    // Without this, the drop event will NEVER fire
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'copy';
+  }, true);
+
+  window.addEventListener('drop', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter = 0;
+    if (overlay) overlay.style.display = 'none';
+
+    log('[Drop] event fired', 'info');
+
+    // Method 1: e.dataTransfer.files with webUtils.getPathForFile
+    const dtFiles = e.dataTransfer.files;
+    if (dtFiles && dtFiles.length > 0) {
+      log('[Drop] Found ' + dtFiles.length + ' files via dataTransfer.files', 'info');
+      let added = 0;
+      for (let i = 0; i < dtFiles.length; i++) {
+        const f = dtFiles[i];
+        try {
+          const filePath = window.electronAPI.getFilePath(f);
+          log('[Drop] File: ' + f.name + ' -> ' + filePath, 'info');
+          if (filePath) {
+            addFile(filePath);
+            added++;
+          }
+        } catch (err) {
+          log('[Drop] getFilePath error: ' + err.message, 'error');
+        }
+      }
+      if (added > 0) {
+        updateFileCount();
+        log('[Drop] Added ' + added + ' file(s)', 'success');
+        return;
+      }
+      log('[Drop] dataTransfer.files had entries but no paths resolved, trying items fallback', 'warn');
+    }
+
+    // Method 2: e.dataTransfer.items (fallback)
+    const items = e.dataTransfer.items;
+    if (items && items.length > 0) {
+      log('[Drop] Found ' + items.length + ' items via dataTransfer.items', 'info');
+      let added = 0;
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.kind === 'file') {
+          const f = item.getAsFile();
+          if (f) {
+            try {
+              const filePath = window.electronAPI.getFilePath(f);
+              log('[Drop] Item file: ' + f.name + ' -> ' + filePath, 'info');
+              if (filePath) {
+                addFile(filePath);
+                added++;
+              }
+            } catch (err) {
+              log('[Drop] Item error: ' + err.message, 'error');
+            }
+          }
+        }
+      }
+      if (added > 0) {
+        updateFileCount();
+        log('[Drop] Added ' + added + ' file(s) via items', 'success');
+        return;
+      }
+    }
+
+    log('[Drop] No files or items detected in dataTransfer', 'warn');
+  }, true);
+
+  // Handle drag cancel (Escape key during drag)
+  window.addEventListener('dragend', (e) => {
+    dragCounter = 0;
+    if (overlay) overlay.style.display = 'none';
+  }, true);
+
+  log('[DragDrop] Initialized (window capture phase)', 'info');
+}
+// ========== Init ==========
+
+
+
+// ========== Preview Resize ==========
+function initPreviewResize() {
+  // Drag-to-resize handles
+  document.querySelectorAll('.resize-handle').forEach(handle => {
+    let startY, startHeight, target;
+    handle.addEventListener('mousedown', function(e) {
+      e.preventDefault();
+      // Find the nearest preceding .preview-container sibling (may not be immediately previous)
+      target = handle.previousElementSibling;
+      while (target && !target.classList.contains('preview-container')) {
+        target = target.previousElementSibling;
+      }
+      if (!target || !target.classList.contains('preview-container')) return;
+      startY = e.clientY;
+      startHeight = target.offsetHeight;
+      handle.classList.add('dragging');
+      const onMove = (ev) => {
+        const delta = ev.clientY - startY;
+        const newH = Math.max(100, Math.min(window.innerHeight * 0.8, startHeight + delta));
+        target.style.height = newH + 'px';
+      };
+      const onUp = () => {
+        handle.classList.remove('dragging');
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  });
+
+  // Double-click to toggle compact/expanded
+  document.querySelectorAll('.preview-container').forEach(container => {
+    container.addEventListener('dblclick', function(e) {
+      if (e.target.tagName === 'VIDEO' || e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
+      const current = container.offsetHeight;
+      if (current > 300) {
+        container.style.height = '280px';
+      } else {
+        container.style.height = '70vh';
+      }
+    });
+  });
+}
+
+async function init() {
+  setupTimeUpdate('videoPlayer', 'timeDisplay', 'seekBar');
+  setupTimeUpdate('videoCut', 'timeDisplayCut', 'seekBarCut');
+  setupTimeUpdate('videoGif', 'timeDisplayGif', 'seekBarGif');
+  setupDragDrop();
+  initPreviewResize();
+
+  // GPU encoder auto-detection
+  try {
+    const sysInfo = await window.electronAPI.getSystemInfo();
+    if (sysInfo) {
+      const enc = sysInfo.encoders || {};
+
+      // GPU → encoder keyword mapping
+      const gpuEncoderMap = {
+        amd:    ['h264_amf', 'hevc_amf', 'av1_amf'],
+        intel:  ['h264_qsv', 'hevc_qsv', 'av1_qsv'],
+        nvidia: ['h264_nvenc', 'hevc_nvenc', 'av1_nvenc']
+      };
+
+      // Disable unavailable GPU encoder options in ALL select elements
+      document.querySelectorAll('select').forEach(sel => {
+        Array.from(sel.options).forEach(opt => {
+          const val = opt.value;
+          for (const [gpu, keywords] of Object.entries(gpuEncoderMap)) {
+            if (keywords.some(k => val.includes(k))) {
+              if (!enc[gpu]) {
+                opt.disabled = true;
+                opt.style.color = '#666';
+                opt.style.backgroundColor = '#2a2a2a';
+              }
+              break;
+            }
+          }
+        });
+      });
+
+      // Update GPU badges based on actual hardware
+      const badgeMap = { amd: '.badge.amd', intel: '.badge.intel', nvidia: '.badge.nvidia' };
+      for (const [gpu, selector] of Object.entries(badgeMap)) {
+        const badge = document.querySelector(selector);
+        if (!badge) continue;
+        if (enc[gpu]) {
+          badge.style.border = '2px solid #4ade80';
+          badge.style.boxShadow = '0 0 6px rgba(74,222,128,0.4)';
+        } else {
+          badge.style.opacity = '0.4';
+          badge.style.textDecoration = 'line-through';
+          badge.style.border = '2px solid #555';
+          badge.onclick = () => {
+            const gpuNames = { amd: 'AMD', intel: 'Intel', nvidia: 'NVIDIA' };
+            log(`${gpuNames[gpu]} GPU编码器不可用 - 未检测到此显卡`, 'warn');
+          };
+        }
+      }
+
+      // Show detected GPU devices in log
+      const gpuList = sysInfo.gpuList || [];
+      if (gpuList.length > 0) {
+        log('检测到 ' + gpuList.length + ' 个显示设备:', 'info');
+        gpuList.forEach((g, i) => {
+          const vendorEmoji = { amd: '🔴', intel: '🔵', nvidia: '🟢' }[g.vendor] || '⚪';
+          log(`  ${vendorEmoji} ${g.name} (驱动: ${g.driverVersion || '未知'})`, 'info');
+        });
+      }
+
+      const availableGpus = Object.entries(enc).filter(([,v]) => v).map(([k]) => k.toUpperCase());
+      if (availableGpus.length > 0) {
+        log('可用GPU编码器: ' + availableGpus.join(', '), 'success');
+      } else {
+        log('无可用GPU编码器，将使用CPU编码', 'warn');
+      }
+    }
+  } catch (e) {
+    log('GPU检测失败: ' + e.message, 'warn');
+  }
+
+  // Progress listener - all tasks show progress bar
+  const taskNames = {
+    convert: '转换', cut: '剪切', merge: '合并',
+    gif: 'GIF', 'gif-palette': 'GIF调色板', rife: '补帧', custom: '自定义'
+  };
+  window.electronAPI.onProgress((data) => {
+    if (data.percent !== undefined) {
+      setProgress(data.percent);
+      const name = taskNames[data.task] || data.task;
+      if (data.percent >= 100) {
+        setStatus(name + ' ✓ 完成');
+      } else {
+        setStatus(name + ': ' + data.percent + '%  ' + (data.time || ''));
+      }
+    } else if (data.time) {
+      const name = taskNames[data.task] || data.task;
+      setStatus(name + ': ' + data.time);
+    }
+  });
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (e.key === ' ') { e.preventDefault(); togglePlay(); }
+    if (e.key === 'i') markStart();
+    if (e.key === 'o') markEnd();
+  });
+
+  showDropZone(true);
+
+  // Update RIFE mode status on startup
+  try {
+    const cfg = await window.electronAPI.getConfig();
+    updateRifeModeStatus(cfg.rifePath);
+  } catch (e) { /* ignore */ }
+
+  log('FFmpeg Workstation UI v2.0 就绪', 'success');
+}
+
+
+// ========== Waveform Display ==========
+const _waveformCanvasIds = ['peakCanvasPlayer', 'peakCanvasCut', 'peakCanvasGif'];
+let _waveformPeaks = null; // normalized 0..1 array
+let _waveformLoading = null; // current loading path (prevent duplicate loads)
+let _waveformMode = 1; // 1 = filled symmetric, 2 = line trace
+
+async function _loadWaveform(filePath) {
+  if (!filePath || _waveformLoading === filePath) return;
+  _waveformLoading = filePath;
+  _waveformPeaks = null;
+  // Clear canvases
+  _waveformCanvasIds.forEach(id => {
+    const c = document.getElementById(id);
+    if (c) { const ctx = c.getContext('2d'); ctx.clearRect(0, 0, c.width, c.height); }
+  });
+  log('[Waveform] 分析音频波形...', 'info');
+  try {
+    const result = await window.electronAPI.waveform(filePath);
+    if (_waveformLoading !== filePath) return; // file changed while loading
+    if (result.success && result.peaks && result.peaks.length > 0) {
+      _waveformPeaks = result.peaks;
+      log('[Waveform] 完成 (' + result.peaks.length + ' 段)', 'success');
+      _drawAllWaveformCanvases();
+    } else {
+      log('[Waveform] 无音频数据' + (result.error ? ': ' + result.error : ''), 'warn');
+    }
+  } catch (err) {
+    if (_waveformLoading === filePath) log('[Waveform] 失败: ' + err.message, 'error');
+  }
+}
+
+function _drawWaveformOnCanvas(canvas) {
+  if (!_waveformPeaks || _waveformPeaks.length === 0) return;
+  if (!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const cssW = canvas.offsetWidth || canvas.clientWidth || 300;
+  const cssH = canvas.offsetHeight || canvas.clientHeight || 14;
+  const w = Math.round(cssW * dpr);
+  const h = Math.round(cssH * dpr);
+  if (canvas.width !== w || canvas.height !== h) {
+    canvas.width = w;
+    canvas.height = h;
+  }
+  const ctx2d = canvas.getContext('2d');
+  ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx2d.clearRect(0, 0, cssW, cssH);
+
+  const peaks = _waveformPeaks;
+  const pointCount = Math.min(peaks.length, Math.round(cssW));
+  const samplesPerPoint = peaks.length / pointCount;
+  const centerY = cssH / 2;
+  const maxAmplitude = cssH / 2;
+
+  // Downsample peaks into one value per x-pixel
+  const levels = new Float32Array(pointCount);
+  for (let i = 0; i < pointCount; i++) {
+    const start = Math.floor(i * samplesPerPoint);
+    const end = Math.floor((i + 1) * samplesPerPoint);
+    let sum = 0;
+    for (let j = start; j < end; j++) sum += peaks[j];
+    // Apply power curve to boost dynamic range (make quiet parts more visible)
+    let val = sum / (end - start);
+    val = Math.pow(val, 0.4); // sqrt-like curve expands low values
+    levels[i] = Math.min(1, val * 2.5); // gain boost, clamp to 1
+  }
+
+  if (_waveformMode === 2) {
+    // Mode 2: Line trace — single thin line, amplitude from top
+    ctx2d.beginPath();
+    ctx2d.strokeStyle = '#00ffcc';
+    ctx2d.lineWidth = 1.5;
+    ctx2d.lineJoin = 'round';
+    for (let i = 0; i < pointCount; i++) {
+      const x = (i / pointCount) * cssW;
+      const amp = Math.max(1, levels[i] * (cssH - 2));
+      const y = cssH - 1 - amp; // louder = higher (closer to top)
+      if (i === 0) ctx2d.moveTo(x, y);
+      else ctx2d.lineTo(x, y);
+    }
+    ctx2d.stroke();
+  } else {
+    // Mode 1: Filled symmetric waveform (original)
+    const grad = ctx2d.createLinearGradient(0, 0, cssW, 0);
+    grad.addColorStop(0, 'rgba(0,200,255,0.85)');
+    grad.addColorStop(0.5, 'rgba(0,255,100,0.85)');
+    grad.addColorStop(1, 'rgba(255,200,0,0.85)');
+
+    ctx2d.beginPath();
+    ctx2d.moveTo(0, centerY);
+    for (let i = 0; i < pointCount; i++) {
+      const x = (i / pointCount) * cssW;
+      const amp = Math.max(1, levels[i] * maxAmplitude);
+      ctx2d.lineTo(x, centerY - amp);
+    }
+    for (let i = pointCount - 1; i >= 0; i--) {
+      const x = (i / pointCount) * cssW;
+      const amp = Math.max(1, levels[i] * maxAmplitude);
+      ctx2d.lineTo(x, centerY + amp);
+    }
+    ctx2d.closePath();
+    ctx2d.fillStyle = grad;
+    ctx2d.fill();
+  }
+}
+
+function toggleWaveformMode() {
+  _waveformMode = _waveformMode === 1 ? 2 : 1;
+  document.querySelectorAll('.waveform-mode-btn').forEach(btn => {
+    if (_waveformMode === 2) {
+      btn.textContent = '\u3030 线条';
+      btn.classList.remove('active');
+    } else {
+      btn.textContent = '\u3030 填充';
+      btn.classList.add('active');
+    }
+  });
+  _drawAllWaveformCanvases();
+}
+
+function _drawAllWaveformCanvases() {
+  _waveformCanvasIds.forEach(id => _drawWaveformOnCanvas(document.getElementById(id)));
+}
+
+// Debounced resize redraw
+let _waveformResizeTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(_waveformResizeTimer);
+  _waveformResizeTimer = setTimeout(() => {
+    _drawAllWaveformCanvases();
+    if (cropActive) updateCropUI();
+  }, 150);
+});
+
+// When a video loads its metadata, redraw waveform (canvas may resize) and update crop overlay
+['videoPlayer', 'videoCut', 'videoGif'].forEach(id => {
+  const v = document.getElementById(id);
+  if (v) {
+    v.addEventListener('loadeddata', () => {
+      setTimeout(_drawAllWaveformCanvases, 100);
+      if (cropActive) setTimeout(updateCropUI, 150);
+    });
+  }
+});
+
+// ========== Theme ==========
+const THEMES = ['default', 'purple'];
+function getTheme() { return localStorage.getItem('ffmpeg-ui-theme') || 'default'; }
+function applyTheme(name) {
+  if (name === 'default') {
+    document.body.removeAttribute('data-theme');
+  } else {
+    document.body.setAttribute('data-theme', name);
+  }
+  localStorage.setItem('ffmpeg-ui-theme', name);
+}
+function toggleTheme() {
+  const cur = getTheme();
+  const next = THEMES[(THEMES.indexOf(cur) + 1) % THEMES.length];
+  applyTheme(next);
+  log('主题切换: ' + (next === 'default' ? '默认(青色)' : '紫色'), 'info');
+}
+// Apply saved theme on load
+applyTheme(getTheme());
+
+
+// ========== Crop Tool ==========
+let cropActive = false;
+let cropXVal = 0, cropYVal = 0, cropWVal = 0, cropHVal = 0;
+let _cropDrag = null; // {type, startX, startY, startRect}
+
+const CROP_PRESETS = {
+  '1920x1080': {w:1920, h:1080},
+  '1080x1920': {w:1080, h:1920},
+  '1080x1080': {w:1080, h:1080},
+  '1440x1080': {w:1440, h:1080},
+};
+
+function applyCropPreset(val) {
+  if (!val) { resetCrop(); return; }
+  if (val === 'custom') {
+    cropActive = true;
+    updateCropUI();
+    return;
+  }
+  const preset = CROP_PRESETS[val];
+  if (!preset) return;
+  // Get video native resolution
+  const vid = getActiveVideo();
+  const vw = vid ? vid.videoWidth : 1920;
+  const vh = vid ? vid.videoHeight : 1080;
+  // Scale preset to fit within video
+  const scale = Math.min(vw / preset.w, vh / preset.h, 1);
+  cropWVal = Math.round(preset.w * scale);
+  cropHVal = Math.round(preset.h * scale);
+  // Center the crop rectangle
+  cropXVal = Math.round((vw - cropWVal) / 2);
+  cropYVal = Math.round((vh - cropHVal) / 2);
+  cropActive = true;
+  updateCropUI();
+  syncCropToInputs();
+}
+
+function getActiveVideo() {
+  const tab = document.querySelector('.tab.active');
+  if (!tab) return null;
+  const name = tab.dataset.tab;
+  if (name === 'convert') return document.getElementById('videoPlayer');
+  if (name === 'cut') return document.getElementById('videoCut');
+  if (name === 'gif') return document.getElementById('videoGif');
+  return null;
+}
+
+function getActiveCropOverlay() {
+  const tab = document.querySelector('.tab.active');
+  if (!tab) return null;
+  const name = tab.dataset.tab;
+  if (name === 'convert') return {overlay: 'cropOverlayConvert', rect: 'cropRectConvert', dims: 'cropDimsConvert'};
+  if (name === 'cut') return {overlay: 'cropOverlayCut', rect: 'cropRectCut', dims: 'cropDimsCut'};
+  if (name === 'gif') return {overlay: 'cropOverlayGif', rect: 'cropRectGif', dims: 'cropDimsGif'};
+  return null;
+}
+
+function getAllCropOverlays() {
+  return [
+    {overlay: 'cropOverlayConvert', rect: 'cropRectConvert', dims: 'cropDimsConvert'},
+    {overlay: 'cropOverlayCut', rect: 'cropRectCut', dims: 'cropDimsCut'},
+    {overlay: 'cropOverlayGif', rect: 'cropRectGif', dims: 'cropDimsGif'},
+  ];
+}
+
+function resetCrop() {
+  cropActive = false;
+  cropXVal = 0; cropYVal = 0; cropWVal = 0; cropHVal = 0;
+  document.getElementById('cropPreset').value = '';
+  syncCropToInputs();
+  updateCropUI();
+}
+
+function syncCropToInputs() {
+  document.getElementById('cropX').value = cropXVal;
+  document.getElementById('cropY').value = cropYVal;
+  document.getElementById('cropW').value = cropWVal;
+  document.getElementById('cropH').value = cropHVal;
+  const status = document.getElementById('cropStatus');
+  if (cropActive) {
+    status.textContent = `${cropWVal}×${cropHVal} @ (${cropXVal},${cropYVal})`;
+  } else {
+    status.textContent = '';
+  }
+}
+
+function onCropInputChanged() {
+  cropXVal = parseInt(document.getElementById('cropX').value) || 0;
+  cropYVal = parseInt(document.getElementById('cropY').value) || 0;
+  cropWVal = parseInt(document.getElementById('cropW').value) || 0;
+  cropHVal = parseInt(document.getElementById('cropH').value) || 0;
+  if (cropWVal > 0 && cropHVal > 0) {
+    cropActive = true;
+    document.getElementById('cropPreset').value = 'custom';
+  } else {
+    cropActive = false;
+  }
+  updateCropUI();
+}
+
+function updateCropUI() {
+  const overlays = getAllCropOverlays();
+  overlays.forEach(ids => {
+    const overlayEl = document.getElementById(ids.overlay);
+    const rectEl = document.getElementById(ids.rect);
+    const dimsEl = document.getElementById(ids.dims);
+    if (!overlayEl || !rectEl) return;
+
+    if (!cropActive || cropWVal <= 0 || cropHVal <= 0) {
+      overlayEl.classList.remove('active');
+      rectEl.classList.remove('visible');
+      return;
+    }
+
+    overlayEl.classList.add('active');
+
+    const vid = overlayEl.parentElement.querySelector('video');
+    if (!vid || !vid.videoWidth || !vid.videoHeight) return;
+
+    // Map crop coordinates (video pixels) to preview container pixels
+    const containerW = overlayEl.offsetWidth;
+    const containerH = overlayEl.offsetHeight;
+    const vidW = vid.videoWidth;
+    const vidH = vid.videoHeight;
+
+    // The video uses object-fit: contain, so we need to compute the actual displayed area
+    const vidAspect = vidW / vidH;
+    const contAspect = containerW / containerH;
+    let displayW, displayH, offsetX, offsetY;
+    if (vidAspect > contAspect) {
+      // Video is wider - limited by container width
+      displayW = containerW;
+      displayH = containerW / vidAspect;
+      offsetX = 0;
+      offsetY = (containerH - displayH) / 2;
+    } else {
+      // Video is taller - limited by container height
+      displayH = containerH;
+      displayW = containerH * vidAspect;
+      offsetX = (containerW - displayW) / 2;
+      offsetY = 0;
+    }
+
+    const scaleX = displayW / vidW;
+    const scaleY = displayH / vidH;
+
+    const left = offsetX + cropXVal * scaleX;
+    const top = offsetY + cropYVal * scaleY;
+    const w = cropWVal * scaleX;
+    const h = cropHVal * scaleY;
+
+    rectEl.style.left = left + 'px';
+    rectEl.style.top = top + 'px';
+    rectEl.style.width = w + 'px';
+    rectEl.style.height = h + 'px';
+    rectEl.classList.add('visible');
+
+    if (dimsEl) dimsEl.textContent = cropWVal + '×' + cropHVal;
+  });
+
+  syncCropToInputs();
+}
+
+// Initialize crop overlay drag/resize
+function initCropOverlays() {
+  getAllCropOverlays().forEach(ids => {
+    const overlayEl = document.getElementById(ids.overlay);
+    const rectEl = document.getElementById(ids.rect);
+    if (!overlayEl || !rectEl) return;
+
+    // Mouse down on crop rect (drag) or handles (resize)
+    rectEl.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const handle = e.target.dataset.handle;
+      const vid = overlayEl.parentElement.querySelector('video');
+      if (!vid || !vid.videoWidth) return;
+      const containerW = overlayEl.offsetWidth;
+      const containerH = overlayEl.offsetHeight;
+      const vidW = vid.videoWidth;
+      const vidH = vid.videoHeight;
+      const vidAspect = vidW / vidH;
+      const contAspect = containerW / containerH;
+      let displayW, displayH, offsetX, offsetY;
+      if (vidAspect > contAspect) {
+        displayW = containerW; displayH = containerW / vidAspect;
+        offsetX = 0; offsetY = (containerH - displayH) / 2;
+      } else {
+        displayH = containerH; displayW = containerH * vidAspect;
+        offsetX = (containerW - displayW) / 2; offsetY = 0;
+      }
+      const scaleX = vidW / displayW;
+      const scaleY = vidH / displayH;
+
+      _cropDrag = {
+        type: handle || 'move',
+        startX: e.clientX,
+        startY: e.clientY,
+        startCropX: cropXVal,
+        startCropY: cropYVal,
+        startCropW: cropWVal,
+        startCropH: cropHVal,
+        scaleX, scaleY,
+        vidW, vidH
+      };
+    });
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!_cropDrag) return;
+    const dx = (e.clientX - _cropDrag.startX) * _cropDrag.scaleX;
+    const dy = (e.clientY - _cropDrag.startY) * _cropDrag.scaleY;
+    const d = _cropDrag;
+
+    if (d.type === 'move') {
+      cropXVal = Math.max(0, Math.min(d.vidW - d.startCropW, Math.round(d.startCropX + dx)));
+      cropYVal = Math.max(0, Math.min(d.vidH - d.startCropH, Math.round(d.startCropY + dy)));
+    } else if (d.type === 'br') {
+      cropWVal = Math.max(32, Math.min(d.vidW - cropXVal, Math.round(d.startCropW + dx)));
+      cropHVal = Math.max(32, Math.min(d.vidH - cropYVal, Math.round(d.startCropH + dy)));
+    } else if (d.type === 'bl') {
+      const newW = Math.max(32, Math.round(d.startCropW - dx));
+      cropXVal = Math.max(0, Math.round(d.startCropX + d.startCropW - newW));
+      cropWVal = newW;
+      cropHVal = Math.max(32, Math.min(d.vidH - cropYVal, Math.round(d.startCropH + dy)));
+    } else if (d.type === 'tr') {
+      cropWVal = Math.max(32, Math.min(d.vidW - cropXVal, Math.round(d.startCropW + dx)));
+      const newH = Math.max(32, Math.round(d.startCropH - dy));
+      cropYVal = Math.max(0, Math.round(d.startCropY + d.startCropH - newH));
+      cropHVal = newH;
+    } else if (d.type === 'tl') {
+      const newW = Math.max(32, Math.round(d.startCropW - dx));
+      const newH = Math.max(32, Math.round(d.startCropH - dy));
+      cropXVal = Math.max(0, Math.round(d.startCropX + d.startCropW - newW));
+      cropYVal = Math.max(0, Math.round(d.startCropY + d.startCropH - newH));
+      cropWVal = newW;
+      cropHVal = newH;
+    } else if (d.type === 'tm') {
+      const newH = Math.max(32, Math.round(d.startCropH - dy));
+      cropYVal = Math.max(0, Math.round(d.startCropY + d.startCropH - newH));
+      cropHVal = newH;
+    } else if (d.type === 'bm') {
+      cropHVal = Math.max(32, Math.min(d.vidH - cropYVal, Math.round(d.startCropH + dy)));
+    } else if (d.type === 'ml') {
+      const newW = Math.max(32, Math.round(d.startCropW - dx));
+      cropXVal = Math.max(0, Math.round(d.startCropX + d.startCropW - newW));
+      cropWVal = newW;
+    } else if (d.type === 'mr') {
+      cropWVal = Math.max(32, Math.min(d.vidW - cropXVal, Math.round(d.startCropW + dx)));
+    }
+
+    document.getElementById('cropPreset').value = 'custom';
+    updateCropUI();
+  });
+
+  document.addEventListener('mouseup', () => {
+    _cropDrag = null;
+  });
+
+  // Click on overlay background to start a new crop region
+  getAllCropOverlays().forEach(ids => {
+    const overlayEl = document.getElementById(ids.overlay);
+    if (!overlayEl) return;
+    overlayEl.addEventListener('mousedown', (e) => {
+      if (e.target !== overlayEl) return;
+      e.preventDefault();
+      const vid = overlayEl.parentElement.querySelector('video');
+      if (!vid || !vid.videoWidth) return;
+      const containerW = overlayEl.offsetWidth;
+      const containerH = overlayEl.offsetHeight;
+      const vidW = vid.videoWidth;
+      const vidH = vid.videoHeight;
+      const vidAspect = vidW / vidH;
+      const contAspect = containerW / containerH;
+      let displayW, displayH, offsetX, offsetY;
+      if (vidAspect > contAspect) {
+        displayW = containerW; displayH = containerW / vidAspect;
+        offsetX = 0; offsetY = (containerH - displayH) / 2;
+      } else {
+        displayH = containerH; displayW = containerH * vidAspect;
+        offsetX = (containerW - displayW) / 2; offsetY = 0;
+      }
+      const scaleX = vidW / displayW;
+      const scaleY = vidH / displayH;
+      const clickX = (e.clientX - overlayEl.getBoundingClientRect().left - offsetX) * scaleX;
+      const clickY = (e.clientY - overlayEl.getBoundingClientRect().top - offsetY) * scaleY;
+      cropXVal = Math.max(0, Math.round(clickX - 100));
+      cropYVal = Math.max(0, Math.round(clickY - 75));
+      cropWVal = 200;
+      cropHVal = 150;
+      cropActive = true;
+      document.getElementById('cropPreset').value = 'custom';
+      updateCropUI();
+    });
+  });
+}
+
+function getCropFilter() {
+  if (!cropActive || cropWVal <= 0 || cropHVal <= 0) return '';
+  return 'crop=' + cropWVal + ':' + cropHVal + ':' + cropXVal + ':' + cropYVal;
+}
+
+// Update crop overlay when switching tabs
+const _origSwitchTab = typeof switchTab === 'function' ? switchTab : null;
+
+// Start
+init();
+initCropOverlays();
+
+// Log area resize
+const logResizeHandle = document.getElementById('logResizeHandle');
+const logArea = document.getElementById('logArea');
+let logResizeActive = false;
+let logResizeStartY = 0;
+let logResizeStartH = 0;
+logResizeHandle.addEventListener('mousedown', (e) => {
+  logResizeActive = true;
+  logResizeStartY = e.clientY;
+  logResizeStartH = logArea.offsetHeight;
+  logResizeHandle.classList.add('dragging');
+  e.preventDefault();
+});
+document.addEventListener('mousemove', (e) => {
+  if (!logResizeActive) return;
+  const delta = e.clientY - logResizeStartY;
+  const maxH = window.innerHeight * 0.9;
+  const newH = Math.max(60, Math.min(maxH, logResizeStartH - delta));
+  logArea.style.height = newH + 'px';
+});
+document.addEventListener('mouseup', () => {
+  if (!logResizeActive) return;
+  logResizeActive = false;
+  logResizeHandle.classList.remove('dragging');
+});
+  </script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+node_modules/
+dist/
+parts/
+rife/
+bin/
+*.log
+_check.js
+_test.js
+test-*.js
+test-*.txt
+package-lock.json
